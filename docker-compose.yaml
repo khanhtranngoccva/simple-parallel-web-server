@@ -1,0 +1,51 @@
+services:
+  server:
+    build:
+      context: "server"
+      dockerfile: "development.Dockerfile"
+    entrypoint: "tsx src/run-pool.ts --start 9000 --end 9019 --target src/index.ts"
+    ports:
+      - "9000:9000"
+    networks:
+      - primary
+    develop:
+      watch:
+        - target: "/app"
+          path: "./server"
+          action: sync+restart
+        - target: "/app/package.json"
+          path: "./server/package.json"
+          action: rebuild
+  balancer:
+    build:
+      context: "balancer"
+      dockerfile: "development.Dockerfile"
+#    entrypoint: "top -b"
+    entrypoint: "tsx src/index.ts --config server-config.js"
+    ports:
+      - "8080:80"
+      - "4430:443"
+    networks:
+      - primary
+    volumes:
+      - "./balancer/ssl/private:/etc/ssl/private"
+      - "./balancer/ssl/cert:/etc/ssl/cert"
+    develop:
+      watch:
+        - target: "/app/"
+          path: "./balancer/"
+          action: sync+restart
+        - target: "/app/package.json"
+          path: "./balancer/package.json"
+          action: rebuild
+  nginx:
+    image: nginx:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./nginx:/etc/nginx/conf.d"
+    networks:
+      - primary
+networks:
+  primary:
+    driver: "bridge"
